@@ -8,5 +8,37 @@ The intention of this project is to deploy the milter ALWAYS AND ONLY as an [OCI
 The following [docker-compose](https://docs.docker.com/compose/) file demonstrates how such a setup could be orchestrated on a single docker host or on a docker swarm cluster. In this context we use [postfix](http://www.postfix.org) as our milter-aware MTA.
 
 ```
-*TODO*
+version: '3'
+
+volumes:
+  sosm_socket:
+
+services:
+  sos-milter:
+    image: "sos-milter/debian:19.06_master"
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: debug
+      # default: test, possible: test,reject
+      MILTER_MODE: reject
+      MILTER_NAME: sos-milter
+      #MILTER_SOCKET: inet6:8020
+      #MILTER_REJECT_MESSAGE: Message rejected due to security policy violation!
+      #MILTER_TMPFAIL_MESSAGE: Message temporary rejected. Please try again later ;)
+      SPF_REGEX: '^.*include:secure-mailgate\.com.*$$'
+    hostname: sos-milter
+    volumes:
+    - "sosm_socket:/socket/:rw"
+
+  postfix:
+    depends_on:
+    - sos-milter
+    image: "postfix/alpine/amd64"
+    restart: unless-stopped
+    hostname: postfix
+    ports:
+    - "1587:587"
+    volumes:
+    - "./config/postfix:/etc/postfix:ro"
+    - "sosm_socket:/socket/sos-milter/:rw"
 ```
