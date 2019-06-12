@@ -7,7 +7,7 @@ node {
     }
 
     stage('Build image') {
-        sh 'make'
+        sh '/usr/bin/env'
         /* This builds the actual image; synonymous to
          * docker build on the command line */
         app = docker.build("jenkins/sos-milter")
