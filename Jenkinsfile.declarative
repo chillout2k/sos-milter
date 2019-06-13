@@ -1,6 +1,6 @@
 pipeline {
   environment {
-    imageObject = ''
+    dockerImage = ''
   }
 
   agent any
@@ -12,7 +12,7 @@ pipeline {
         /* This builds the actual image; synonymous to
          * docker build on the command line */
         script {
-          imageObject = docker.build(env.imageName)
+          dockerImage = docker.build("${env.imageName}:${env.GIT_LOCAL_BRANCH}")
         }
       }
     }
@@ -22,7 +22,7 @@ pipeline {
         /* Ideally, we would run a test framework against our image.
          * For this example, we're using a Volkswagen-type approach ;-) */
         script {
-          imageObject.inside {
+          dockerImage.inside {
             sh 'echo "Tests passed"'
           }
         }
@@ -33,7 +33,7 @@ pipeline {
       steps {
         script {
           docker.withRegistry(env.dockerRegistry) {
-            imageObject.push()
+            dockerImage.push()
           }
         }
       }
