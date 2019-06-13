@@ -1,6 +1,6 @@
 pipeline {
-  environment{
-    dockerImage = ''
+  environment {
+    imageObject = ''
     imageName = 'jenkins/sos-milter'
     dockerRegistry = 'https://dockreg-fra.zwackl.de'
   }
@@ -19,7 +19,9 @@ pipeline {
         sh '/usr/bin/env'
         /* This builds the actual image; synonymous to
          * docker build on the command line */
-        dockerImage = docker.build(imageName)
+        script {
+          imageObject = docker.build(imageName)
+        }
       }
     }
 
@@ -27,17 +29,27 @@ pipeline {
       steps {
         /* Ideally, we would run a test framework against our image.
          * For this example, we're using a Volkswagen-type approach ;-) */
-        dockerImage.inside {
-          sh 'echo "Tests passed"'
+        script {
+          imageObject.inside {
+            sh 'echo "Tests passed"'
+          }
         }
       }
     }
   
     stage('Push image') {
       steps {
-        docker.withRegistry(dockerRegistry) {
-          dockerImage.push()
+        script {
+          docker.withRegistry(dockerRegistry) {
+            imageObject.push()
+          }
         }
+      }
+    }
+   
+    stage('Cleanup') {
+      steps {
+        sh 'echo "TODO: cleanup!"'
       }
     }
   }
