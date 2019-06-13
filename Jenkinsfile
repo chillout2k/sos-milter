@@ -2,6 +2,7 @@ node {
   def app
 
   stage('Clone repository') {
+      sh '/usr/bin/env'
       /* Let's make sure we have the repository cloned to our workspace */
       checkout scm
   }
