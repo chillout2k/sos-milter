@@ -1,0 +1,37 @@
+pipeline {
+  agent any
+  def docker_image
+
+  stages {
+    stage('Checkout SCM') {
+      checkout scm
+    }
+    
+    stage('Build image') {
+      steps {
+        sh '/usr/bin/env'
+        /* This builds the actual image; synonymous to
+         * docker build on the command line */
+        docker_image = docker.build("jenkins/sos-milter")
+      }
+    }
+
+    stage('Test image') {
+      steps {
+        /* Ideally, we would run a test framework against our image.
+         * For this example, we're using a Volkswagen-type approach ;-) */
+        docker_image.inside {
+          sh 'echo "Tests passed"'
+        }
+      }
+    }
+  
+    stage('Push image') {
+      steps {
+        docker.withRegistry('https://dockreg-fra.zwackl.de') {
+          docker_image.push()
+        }
+      }
+    }
+  }
+}
