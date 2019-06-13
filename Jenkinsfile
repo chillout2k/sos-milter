@@ -23,7 +23,7 @@ node {
   }
   
   stage('Push image') {
-    docker.withRegistry('https://dockreg-fra.zwackl.de') {
+    docker.withRegistry() {
       app.push()
     }
   }
