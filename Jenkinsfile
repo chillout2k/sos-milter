@@ -1,23 +1,29 @@
 node {
-    def app
+  def app
 
-    stage('Clone repository') {
-        /* Let's make sure we have the repository cloned to our workspace */
-        checkout scm
-    }
+  stage('Clone repository') {
+      /* Let's make sure we have the repository cloned to our workspace */
+      checkout scm
+  }
 
-    stage('Build image') {
-        sh '/usr/bin/env'
-        /* This builds the actual image; synonymous to
-         * docker build on the command line */
-        app = docker.build("jenkins/sos-milter")
-    }
+  stage('Build image') {
+      sh '/usr/bin/env'
+      /* This builds the actual image; synonymous to
+       * docker build on the command line */
+      app = docker.build("jenkins/sos-milter")
+  }
 
-    stage('Test image') {
-        /* Ideally, we would run a test framework against our image.
-         * For this example, we're using a Volkswagen-type approach ;-) */
-        app.inside {
-            sh 'echo "Tests passed"'
-        }
+  stage('Test image') {
+      /* Ideally, we would run a test framework against our image.
+       * For this example, we're using a Volkswagen-type approach ;-) */
+      app.inside {
+          sh 'echo "Tests passed"'
+      }
+  }
+  
+  stage('Push image') {
+    docker.withRegistry('http://dockreg-fra.zwackl.local:5000') {
+      app.push()
     }
+  }
 }
