@@ -19,7 +19,7 @@ pipeline {
       steps {
         script {
           dockerImage.inside {
-            sh '/usr/bin/env"'
+            sh '/usr/bin/env'
           }
         }
       }
