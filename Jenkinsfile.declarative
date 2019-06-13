@@ -12,7 +12,7 @@ pipeline {
         /* This builds the actual image; synonymous to
          * docker build on the command line */
         script {
-          imageObject = docker.build(${env.imageName})
+          imageObject = docker.build(env.imageName)
         }
       }
     }
@@ -32,7 +32,7 @@ pipeline {
     stage('Push image') {
       steps {
         script {
-          docker.withRegistry(${env.dockerRegistry}) {
+          docker.withRegistry(env.dockerRegistry) {
             imageObject.push()
           }
         }
