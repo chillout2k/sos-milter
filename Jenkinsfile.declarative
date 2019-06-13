@@ -9,21 +9,17 @@ pipeline {
     stage('Build image') {
       steps {
         sh '/usr/bin/env'
-        /* This builds the actual image; synonymous to
-         * docker build on the command line */
         script {
-          dockerImage = docker.build("${env.imageName}:${env.GIT_LOCAL_BRANCH}")
+          dockerImage = docker.build("${env.imageName}:${env.GIT_LOCAL_BRANCH}","--pull=true --label GIT_COMMIT=${env.GIT_COMMIT} --label BUILD_URL=${env.BUILD_URL}")
         }
       }
     }
 
     stage('Test image') {
       steps {
-        /* Ideally, we would run a test framework against our image.
-         * For this example, we're using a Volkswagen-type approach ;-) */
         script {
           dockerImage.inside {
-            sh 'echo "Tests passed"'
+            sh '/usr/bin/env"'
           }
         }
       }
