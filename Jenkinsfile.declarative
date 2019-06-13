@@ -18,7 +18,7 @@ pipeline {
     stage('Test image') {
       steps {
         script {
-          dockerImage.inside("-u root --entrypoint='/bin/sleep infinity'") {
+          dockerImage.inside("-u root --entrypoint=['/bin/sleep', 'infinity']") {
             sh '/usr/bin/env'
           }
         }
