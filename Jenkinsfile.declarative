@@ -8,12 +8,6 @@ pipeline {
   agent any
 
   stages {
-    stage('Checkout SCM') {
-      steps {
-        checkout scm
-      }
-    }
-    
     stage('Build image') {
       steps {
         sh '/usr/bin/env'
