@@ -21,6 +21,6 @@ RUN env; set -ex ; \
 
 COPY app/*.py /app/
 COPY entrypoint.sh /entrypoint.sh
-COPY entrypoint_test.sh /entrypoint_test.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/usr/bin/python3", "/app/sos-milter.py"]

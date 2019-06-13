@@ -18,7 +18,7 @@ pipeline {
     stage('Test image') {
       steps {
         script {
-          dockerImage.inside("--entrypoint='/entrypoint_test.sh'") {
+          dockerImage.inside() {
             sh '/usr/bin/env'
           }
         }
