@@ -10,7 +10,7 @@ pipeline {
       steps {
         sh '/usr/bin/env'
         script {
-          dockerImage = docker.build("${env.imageName}:${env.GIT_LOCAL_BRANCH}","--label \\\"GIT_COMMIT\\\"=\\\"${env.GIT_COMMIT}\\\" --label \\\"BUILD_URL\\\"=\\\"${env.BUILD_URL}\\\"")
+          dockerImage = docker.build("${env.imageName}:${env.GIT_LOCAL_BRANCH}","--pull --label \\\"GIT_COMMIT=${env.GIT_COMMIT}\\\" --label \\\"BUILD_URL=${env.BUILD_URL}\\\" .")
         }
       }
     }
