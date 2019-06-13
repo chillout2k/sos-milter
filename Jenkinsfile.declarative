@@ -20,6 +20,7 @@ pipeline {
         script {
           dockerImage.inside { c ->
             sh '/usr/bin/env'
+            sh '/bin/ps auxwwf'
           }
         }
       }
