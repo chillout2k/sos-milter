@@ -1,11 +1,7 @@
 pipeline {
   environment {
     dockerImage = ''
-  }
-
-  parameters {
-    string name: 'imageName', trim: false
-    string name: 'dockerRegistry', trim: false
+    imageName = 'sos-milter'
   }
 
   agent any
@@ -35,9 +31,7 @@ pipeline {
     stage('Push image') {
       steps {
         script {
-          docker.withRegistry(env.dockerRegistry) {
-            dockerImage.push()
-          }
+          dockerImage.push()
         }
       }
     }
