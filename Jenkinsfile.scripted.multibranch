@@ -1,6 +1,12 @@
 node {
   def dockerImage
 
+  stage('Clone repository') {
+      sh '/usr/bin/env'
+      /* Let's make sure we have the repository cloned to our workspace */
+      checkout scm
+  }
+  
   stage('Build image') {
     sh '/usr/bin/env'
     /* Multi-Branch Pipeline works with env.BRANCH_NAME*/
