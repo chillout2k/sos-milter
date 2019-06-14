@@ -20,9 +20,7 @@ node {
   }
 
   stage('Push image') {
-    docker.withRegistry('https://dockreg-fra.zwackl.de') {
-      app.push()
-    }
+    app.push()
   }
 
   stage('Cleanup') {
