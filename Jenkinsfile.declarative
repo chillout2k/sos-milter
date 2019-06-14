@@ -1,11 +1,10 @@
 pipeline {
+  agent any
   environment {
+    CI = 'true'
     dockerImage = ''
     imageName = 'sos-milter'
   }
-
-  agent any
-
   stages {
     stage('Build image') {
       steps {
@@ -16,7 +15,6 @@ pipeline {
         }
       }
     }
-
     stage('Test image') {
       steps {
         script {
@@ -27,7 +25,6 @@ pipeline {
         }
       }
     }
-  
     stage('Push image') {
       steps {
         script {
@@ -35,7 +32,6 @@ pipeline {
         }
       }
     }
-   
     stage('Cleanup') {
       steps {
         sh 'echo "TODO: cleanup!"'
