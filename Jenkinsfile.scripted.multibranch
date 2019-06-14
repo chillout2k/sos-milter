@@ -1,0 +1,26 @@
+node {
+  def dockerImage
+
+  stage('Build image') {
+    sh '/usr/bin/env'
+    /* Multi-Branch Pipeline works with env.BRANCH_NAME*/
+    dockerImage = docker.build("sos-milter:${env.BRANCH_NAME}","--pull --label BUILD_URL=${env.BUILD_URL} .")
+  }
+
+  stage('Test image') {
+    dockerImage.inside {
+      sh '/usr/bin/env'
+      sh '/bin/ps auxwwf'
+    }
+  }
+
+  stage('Push image') {
+    docker.withRegistry('https://dockreg-fra.zwackl.de') {
+      dockerImage.push()
+    }
+  }
+
+  stage('Cleanup') {
+    sh 'echo "TODO: cleanup!"'
+  }
+}
