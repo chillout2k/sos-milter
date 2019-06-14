@@ -44,8 +44,7 @@ pipeline {
     }
     stage('Cleanup') {
       steps {
-        sh '/usr/bin/docker rmi "${imageName}:${BRANCH_NAME}"'
-        sh '/usr/bin/docker rmi "${dockerRegistry}/${imageName}:${BRANCH_NAME}"'
+        sh '/usr/bin/docker rmi -f "${imageName}:${BRANCH_NAME}"'
       }
     }
   }
