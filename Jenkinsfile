@@ -1,1 +1,1 @@
-Jenkinsfile.declarative
+Jenkinsfile.scripted.multibranch
