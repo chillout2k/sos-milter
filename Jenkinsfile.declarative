@@ -3,6 +3,11 @@ pipeline {
     dockerImage = ''
   }
 
+  parameters {
+    string name: 'imageName', trim: false
+    string name: 'dockerRegistry', trim: false
+  }
+
   agent any
 
   stages {
@@ -10,7 +15,8 @@ pipeline {
       steps {
         sh '/usr/bin/env'
         script {
-          dockerImage = docker.build("${env.imageName}:${env.GIT_LOCAL_BRANCH}","--pull --label \\\"GIT_COMMIT=${env.GIT_COMMIT}\\\" --label \\\"BUILD_URL=${env.BUILD_URL}\\\" .")
+          /* Multi-Branch Pipeline works with env.BRANCH_NAME*/
+          dockerImage = docker.build("${env.imageName}:${env.BRANCH_NAME}","--pull --label BUILD_URL=${env.BUILD_URL} .")
         }
       }
     }
@@ -18,7 +24,7 @@ pipeline {
     stage('Test image') {
       steps {
         script {
-          dockerImage.inside { c ->
+          dockerImage.inside {
             sh '/usr/bin/env'
             sh '/bin/ps auxwwf'
           }
