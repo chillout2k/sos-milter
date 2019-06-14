@@ -1,20 +1,19 @@
 node {
-  def dockerImage
+  def app
 
   stage('Clone repository') {
       sh '/usr/bin/env'
-      /* Let's make sure we have the repository cloned to our workspace */
       checkout scm
   }
   
   stage('Build image') {
     sh '/usr/bin/env'
     /* Multi-Branch Pipeline works with env.BRANCH_NAME*/
-    dockerImage = docker.build("sos-milter:${env.BRANCH_NAME}","--pull --label BUILD_URL=${env.BUILD_URL} .")
+    app = docker.build("sos-milter:${env.BRANCH_NAME}","--pull --label BUILD_URL=${env.BUILD_URL} .")
   }
 
   stage('Test image') {
-    dockerImage.inside {
+    app.inside {
       sh '/usr/bin/env'
       sh '/bin/ps auxwwf'
     }
@@ -22,7 +21,7 @@ node {
 
   stage('Push image') {
     docker.withRegistry('https://dockreg-fra.zwackl.de') {
-      dockerImage.push()
+      app.push()
     }
   }
 
