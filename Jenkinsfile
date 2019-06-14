@@ -2,7 +2,8 @@ pipeline {
   agent any
 
   parameters {
-    string name: 'dockerRegistry', trim: true
+    string defaultValue: 'https', name: 'dockerRegistryScheme', trim: true
+    string defaultValue: 'change.me', name: 'dockerRegistryRepo', trim: true
   }
 
   environment {
@@ -36,7 +37,7 @@ pipeline {
     stage('Push image') {
       steps {
         script {
-          docker.withRegistry(env.dockerRegistry) {
+          docker.withRegistry("${env.dockerRegistryScheme}://${env.dockerRegistryRepo}") {
             dockerImage.push()
           }
         }
@@ -45,6 +46,7 @@ pipeline {
     stage('Cleanup') {
       steps {
         sh '/usr/bin/docker rmi -f "${imageName}:${BRANCH_NAME}"'
+        sh '/usr/bin/docker rmi -f "${dockerRegistryRepo}/${imageName}:${BRANCH_NAME}"'
       }
     }
   }
