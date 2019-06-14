@@ -5,7 +5,7 @@ node {
       sh '/usr/bin/env'
       checkout scm
   }
-  
+
   stage('Build image') {
     sh '/usr/bin/env'
     /* Multi-Branch Pipeline works with env.BRANCH_NAME*/
