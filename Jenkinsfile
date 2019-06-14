@@ -1,10 +1,10 @@
 node {
   def app
 
-  stage('Clone repository') {
+/*  stage('Clone repository') {
       sh '/usr/bin/env'
       checkout scm
-  }
+  }*/
 
   stage('Build image') {
     sh '/usr/bin/env'
