@@ -3,7 +3,7 @@ pipeline {
 
   parameters {
     string defaultValue: 'https', name: 'dockerRegistryScheme', trim: true
-    string defaultValue: 'change.me', name: 'dockerRegistryRepo', trim: true
+    string defaultValue: 'example.com', name: 'dockerRegistryRepo', trim: true
   }
 
   environment {
