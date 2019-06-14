@@ -1,5 +1,5 @@
+properties([disallowConcurrentBuilds()])
 pipeline {
-
   agent any
 
   environment {
