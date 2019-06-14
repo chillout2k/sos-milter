@@ -5,4 +5,3 @@ set -e
 umask 0000
 ulimit -n 1024
 exec "$@"
-#/usr/bin/python3 /app/sos-milter.py
