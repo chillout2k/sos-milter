@@ -45,6 +45,7 @@ pipeline {
     }
     stage('Cleanup') {
       steps {
+        echo "Cleanup"
         /* The default is to reuse the local images for future builds. The reason 
            for this is quite simple! It´s much easier to prune local images from
            disk than pushed images from the (cheap) docker registry! */
