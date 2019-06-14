@@ -1,12 +1,13 @@
 pipeline {
   agent any
 
-  environment {
-    dockerImage = ''
-  }
-
   parameters {
     string name: 'dockerRegistry', trim: true
+  }
+
+  environment {
+    dockerImage = ''
+    imageName = 'sos-milter'
   }
 
   stages {
@@ -14,8 +15,10 @@ pipeline {
       steps {
         sh '/usr/bin/env'
         script {
-          /* Multi-Branch Pipeline works with env.BRANCH_NAME*/
-          dockerImage = docker.build("sos-milter:${env.BRANCH_NAME}","--pull --label BUILD_URL=${env.BUILD_URL} .")
+          dockerImage = docker.build(
+            "${env.imageName}:${env.BRANCH_NAME}",
+            "--pull --label BUILD_URL=${env.BUILD_URL} ."
+          )
         }
       }
     }
@@ -23,6 +26,7 @@ pipeline {
       steps {
         script {
           dockerImage.inside {
+            sh 'echo "INSIDE CONTAINER!"'
             sh '/usr/bin/env'
             sh '/bin/ps auxwwf'
           }
@@ -40,7 +44,7 @@ pipeline {
     }
     stage('Cleanup') {
       steps {
-        sh 'echo "TODO: cleanup!"'
+        sh '/usr/bin/docker rmi ${env.imageName}:${env.BRANCH_NAME}'
       }
     }
   }
