@@ -44,7 +44,7 @@ pipeline {
     }
     stage('Cleanup') {
       steps {
-        sh '/usr/bin/docker rmi ${env.imageName}:${env.BRANCH_NAME}'
+        sh '/usr/bin/docker rmi "${imageName}:${BRANCH_NAME}"'
       }
     }
   }
