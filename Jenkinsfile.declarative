@@ -1,10 +1,7 @@
+def dockerImage = ''
+
 pipeline {
   agent any
-
-  environment {
-    dockerImage = ''
-    imageName = 'sos-milter'
-  }
 
   stages {
     stage('Build image') {
@@ -12,7 +9,7 @@ pipeline {
         sh '/usr/bin/env'
         script {
           /* Multi-Branch Pipeline works with env.BRANCH_NAME*/
-          dockerImage = docker.build("${env.imageName}:${env.BRANCH_NAME}","--pull --label BUILD_URL=${env.BUILD_URL} .")
+          dockerImage = docker.build("sos-milter:${env.BRANCH_NAME}","--pull --label BUILD_URL=${env.BUILD_URL} .")
         }
       }
     }
@@ -29,9 +26,7 @@ pipeline {
     stage('Push image') {
       steps {
         script {
-          docker.withRegistry('https://dockreg-fra.zwackl.de') {
-            dockerImage.push()
-          }
+          dockerImage.push()
         }
       }
     }
@@ -42,3 +37,4 @@ pipeline {
     }
   }
 }
+
