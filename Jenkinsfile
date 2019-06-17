@@ -24,10 +24,9 @@ pipeline {
     stage('Test image') {
       steps {
         script {
-          dockerImageObj.inside("--entrypoint=/entrypoint.sh") {
+          dockerImageObj.inside() {
             sh 'echo "INSIDE CONTAINER!"'
-            sh '/usr/bin/env'
-            sh '/bin/ps auxwwf'
+            sh '/usr/bin/python3 /app/sos-milter.py &'
           }
         }
       }
