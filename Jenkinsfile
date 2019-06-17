@@ -27,6 +27,7 @@ pipeline {
           dockerImageObj.inside() {
             sh 'echo "INSIDE CONTAINER!"'
             sh '/usr/bin/python3 /app/sos-milter.py &'
+            sh 'sleep 5; if [ -f /socket/sos-milter ]; then exit 0; else exit 1; fi'
           }
         }
       }
