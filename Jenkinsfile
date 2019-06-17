@@ -1,3 +1,5 @@
+def dockerImageObj
+
 pipeline {
   agent any
 
@@ -5,10 +7,6 @@ pipeline {
     string defaultValue: 'https', name: 'dockerRegistryScheme', trim: true
     string defaultValue: 'example.com', name: 'dockerRegistryRepo', trim: true
     string defaultValue: 'sos-milter', name: 'imageName', trim: true
-  }
-
-  environment {
-    dockerImageObj = ''
   }
 
   stages {
@@ -26,7 +24,7 @@ pipeline {
     stage('Test image') {
       steps {
         script {
-          dockerImageObj.inside {
+          dockerImageObj.inside("python3") {
             sh 'echo "INSIDE CONTAINER!"'
             sh '/usr/bin/env'
             sh '/bin/ps auxwwf'
