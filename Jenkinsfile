@@ -25,9 +25,9 @@ pipeline {
       steps {
         script {
           dockerImageObj.inside() {
-            sh 'echo "INSIDE CONTAINER!"'
-            sh '/usr/bin/python3 /app/sos-milter.py &'
-            sh 'sleep 5; if [ -S /socket/sos-milter ]; then exit 0; else exit 1; fi'
+            sh 'echo "Performing application tests inside sos-milter container..."'
+            sh 'export MILTER_SOCKET=inet:8020 && /usr/bin/python3 /app/sos-milter.py &'
+            sh 'sleep 5; /bin/nc -z -n -v -w 1 127.0.0.1 8020 || exit 1'
           }
         }
       }

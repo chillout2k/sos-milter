@@ -12,7 +12,7 @@ RUN env; set -ex ; \
  && apt-get -qq --no-install-recommends install \
      python3-pip python3-setuptools \
      libmilter1.0.1 libmilter-dev procps net-tools \
-     gcc python3-dev \
+     gcc python3-dev netcat-traditional \
  && /usr/bin/pip3 install pymilter \
  && /usr/bin/pip3 install dnspython \
  && /bin/mkdir /config /socket /app \
