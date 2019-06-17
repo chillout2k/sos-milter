@@ -24,7 +24,7 @@ pipeline {
     stage('Test image') {
       steps {
         script {
-          dockerImageObj.inside("python3") {
+          dockerImageObj.inside("--entrypoint=/entrypoint.sh") {
             sh 'echo "INSIDE CONTAINER!"'
             sh '/usr/bin/env'
             sh '/bin/ps auxwwf'
