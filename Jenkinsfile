@@ -35,6 +35,9 @@ pipeline {
     stage('Push image') {
       steps {
         script {
+          withCredentials([usernamePassword(credentialsId: 'jenkins_dockreg', passwordVariable: 'DOCKREG_PASS', usernameVariable: 'DOCKREG_USER')]) {
+            sh 'docker login -u ${DOCKREG_USER} -p ${DOCKREG_PASS} ${dockerRegistryRepo} || { echo "Docker login failed!"; exit; }'
+          } 
           docker.withRegistry("${env.dockerRegistryScheme}://${env.dockerRegistryRepo}") {
             dockerImageObj.push()
           }
