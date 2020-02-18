@@ -20,6 +20,7 @@ g_re_expected_txt_data = ''
 g_loglevel = logging.INFO
 g_milter_mode = 'test'
 g_milter_default_policy = 'reject'
+g_milter_reject_if_multiple_spf_records = False
 
 class SOSMilter(Milter.Base):
   # Each new connection is handled in an own thread
@@ -58,6 +59,10 @@ class SOSMilter(Milter.Base):
 
   def envfrom(self, mailfrom, *str):
     try:
+      # DSNs/bounces are not relevant
+      if(mailfrom == '<>'):
+        logging.info(self.mconn_id + "/FROM Skipping bounce/DSN message")
+        return Milter.CONTINUE
       mailfrom = mailfrom.replace("<","")
       mailfrom = mailfrom.replace(">","")
       self.env_from = mailfrom
@@ -70,12 +75,24 @@ class SOSMilter(Milter.Base):
         return Milter.TEMPFAIL
       self.env_from_domain = m.group(1)
       logging.debug(self.mconn_id +
-        "/FROM env_from_domain=" + self.env_from_domain
+        "/FROM 5321.from-domain=" + self.env_from_domain
       )
       # Get TXT record of sender domain
       dns_response = None
       try:
         dns_response = dns.resolver.query(self.env_from_domain, 'TXT')
+      except dns.resolver.NoAnswer as e:
+        logging.info(self.mconn_id + 
+          " /FROM " + e.msg
+        )
+        # accept message if DNS-resolver fails
+        return Milter.CONTINUE
+      except dns.resolver.NXDOMAIN as e:
+        logging.info(self.mconn_id + 
+          " /FROM " + e.msg
+        )
+        # accept message if DNS-resolver fails
+        return Milter.CONTINUE
       except:
         logging.error("DNS-Resolver-EXCEPTION: " + traceback.format_exc())
         # accept message if DNS-resolver fails
@@ -93,7 +110,7 @@ class SOSMilter(Milter.Base):
             # SPF record is in agressive mode!
             if g_re_spf_regex.match(self.spf_record) is not None:
               logging.debug(self.mconn_id + "/FROM" +
-                " SPF-record of sender-domain " + self.env_from_domain +
+                " SPF-record of 5321.from-domain " + self.env_from_domain +
                 " permits us to relay this message"
               )
             else:
@@ -102,23 +119,24 @@ class SOSMilter(Milter.Base):
               logging.debug(self.mconn_id + "/FROM " + ex)
               if g_milter_mode == 'test':
                 logging.debug(self.mconn_id + "/FROM " +
-                  ' test-mode: X-SOS-Milter header will be added'
+                  'test-mode: X-SOS-Milter header will be added'
                 )
                 self.add_header = True
               else:
                 logging.error(self.mconn_id + "/FROM " + ex)
                 self.setreply('550','5.7.1',
-                  self.mconn_id + ' ' + ex + ' Please contact your postmaster!'
+                  self.mconn_id + ' ' + ex + ' ' + g_milter_reject_message
                 )
                 return Milter.REJECT
       if spf_count > 1:
-        ex = "Sender-domain " + self.env_from_domain + " has more than one SPF-TXT-records in DNS!"""
+        ex = "5321.from-domain " + self.env_from_domain + " has more than one SPF-TXT-records in DNS!"
         logging.error(self.mconn_id + "/FROM " + ex)
         if g_milter_mode == 'reject':
-          self.setreply('550','5.7.1',
-            self.mconn_id + ' ' + ex + ' Please contact your postmaster!'
-          )
-          return Milter.REJECT
+          if g_milter_reject_if_multiple_spf_records == True:
+            self.setreply('550','5.7.1',
+              self.mconn_id + ' ' + ex + ' Please contact the postmaster of ' + self.env_from_domain
+            )
+            return Milter.REJECT
       return Milter.CONTINUE
     except:
       logging.error("FROM-EXCEPTION: " + traceback.format_exc())
