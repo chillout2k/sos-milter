@@ -8,6 +8,7 @@ import random
 import re
 import dns.resolver
 from timeit import default_timer as timer
+import pprint
 
 # Globals with mostly senseless defaults ;)
 g_milter_name = 'sos-milter'
@@ -19,17 +20,20 @@ g_re_spf_regex = re.compile(r'.*', re.IGNORECASE)
 g_re_expected_txt_data = ''
 g_loglevel = logging.INFO
 g_milter_mode = 'test'
-g_milter_default_policy = 'reject'
-g_milter_reject_if_multiple_spf_records = False
+g_ignored_next_hops = {}
 
 class SOSMilter(Milter.Base):
   # Each new connection is handled in an own thread
   def __init__(self):
     self.time_start = timer()
+    self.null_sender = False
     self.env_from = None
     self.env_from_domain = None
     self.spf_record = None
     self.add_header = False
+    self.queue_id = None
+    self.next_hop = None
+    
     # https://stackoverflow.com/a/2257449
     self.mconn_id = g_milter_name + ': ' + ''.join(
       random.choice(string.ascii_lowercase + string.digits) for _ in range(8)
@@ -40,12 +44,6 @@ class SOSMilter(Milter.Base):
     return Milter.CONTINUE
   @Milter.nocallback
   def hello(self, heloname):
-    return Milter.CONTINUE
-  @Milter.nocallback
-  def envrcpt(self, to, *str):
-    return Milter.CONTINUE
-  @Milter.nocallback
-  def data(self):
     return Milter.CONTINUE
   @Milter.nocallback
   def header(self, name, hval):
@@ -61,7 +59,7 @@ class SOSMilter(Milter.Base):
     try:
       # DSNs/bounces are not relevant
       if(mailfrom == '<>'):
-        logging.info(self.mconn_id + "/FROM Skipping bounce/DSN message")
+        self.null_sender = True
         return Milter.CONTINUE
       mailfrom = mailfrom.replace("<","")
       mailfrom = mailfrom.replace(">","")
@@ -82,66 +80,86 @@ class SOSMilter(Milter.Base):
       try:
         dns_response = dns.resolver.query(self.env_from_domain, 'TXT')
       except dns.resolver.NoAnswer as e:
-        logging.info(self.mconn_id + 
+        logging.error(self.mconn_id + 
           " /FROM " + e.msg
         )
         # accept message if DNS-resolver fails
         return Milter.CONTINUE
       except dns.resolver.NXDOMAIN as e:
-        logging.info(self.mconn_id + 
+        logging.error(self.mconn_id + 
           " /FROM " + e.msg
         )
         # accept message if DNS-resolver fails
         return Milter.CONTINUE
       except:
-        logging.error("DNS-Resolver-EXCEPTION: " + traceback.format_exc())
+        logging.error(self.mconn_id + " DNS-Resolver-EXCEPTION: " + traceback.format_exc())
         # accept message if DNS-resolver fails
         return Milter.CONTINUE
-      spf_count = 0
       for rdata in dns_response:
         if re.match(r'^"v=spf1.*"$', rdata.to_text(), re.IGNORECASE):
           # we´ve got a SPF match!
-          spf_count += 1
-          self.spf_record = rdata.to_text()
-          logging.debug(self.mconn_id + "/FROM " +
-            "SPFv1: " + self.spf_record
-          )
-          if re.match(r'^".+-all"$', self.spf_record, re.IGNORECASE) is not None:
-            # SPF record is in agressive mode!
-            if g_re_spf_regex.match(self.spf_record) is not None:
-              logging.debug(self.mconn_id + "/FROM" +
-                " SPF-record of 5321.from-domain " + self.env_from_domain +
-                " permits us to relay this message"
-              )
-            else:
-              ex = "Agressive SPF-record (-all) of sender-domain " + self.env_from_domain + " does not permit us to relay this message!"
-              # Expected 'include' not found in SPF-record
-              logging.debug(self.mconn_id + "/FROM " + ex)
-              if g_milter_mode == 'test':
-                logging.debug(self.mconn_id + "/FROM " +
-                  'test-mode: X-SOS-Milter header will be added'
-                )
-                self.add_header = True
-              else:
-                logging.error(self.mconn_id + "/FROM " + ex)
-                self.setreply('550','5.7.1',
-                  self.mconn_id + ' ' + ex + ' ' + g_milter_reject_message
-                )
-                return Milter.REJECT
-      if spf_count > 1:
-        ex = "5321.from-domain " + self.env_from_domain + " has more than one SPF-TXT-records in DNS!"
-        logging.error(self.mconn_id + "/FROM " + ex)
-        if g_milter_mode == 'reject':
-          if g_milter_reject_if_multiple_spf_records == True:
-            self.setreply('550','5.7.1',
-              self.mconn_id + ' ' + ex + ' Please contact the postmaster of ' + self.env_from_domain
-            )
-            return Milter.REJECT
+          self.spf_record = rdata.to_text() 
+          break 
       return Milter.CONTINUE
     except:
-      logging.error("FROM-EXCEPTION: " + traceback.format_exc())
+      logging.error(self.mconn_id + " FROM-EXCEPTION: " + traceback.format_exc())
       self.setreply('450','4.7.1', g_milter_tmpfail_message)
       return Milter.TEMPFAIL
+
+  def envrcpt(self, to, *str):
+    if self.null_sender == True:
+      return Milter.CONTINUE
+    try:
+      self.next_hop = self.getsymval('{rcpt_host}')
+    except:
+      logging.error(self.mconn_id + "RCPT exception: " + traceback.format_exc())
+      sys.exit(1)
+    return Milter.CONTINUE
+
+  def data(self):
+    # A queue-id will be generated after the first accepted RCPT TO
+    # and therefore not available until DATA command
+    self.queue_id = self.getsymval('i')
+    if self.null_sender:
+      logging.info(self.mconn_id + '/' + self.queue_id + 
+        "/DATA Skipping bounce/DSN message"
+      )
+      return Milter.CONTINUE
+    if self.spf_record is not None:
+      logging.info(self.mconn_id + '/' + self.queue_id + "/DATA " +
+        "SPFv1: " + self.spf_record
+      )
+      logging.debug(self.mconn_id + '/' + self.queue_id + "/DATA " + 
+        "next-hop=" + self.next_hop
+      )
+      if re.match(r'^".+-all"$', self.spf_record, re.IGNORECASE) is not None:
+        # SPF record is in restrictive mode
+        if g_re_spf_regex.match(self.spf_record) is not None:
+          logging.debug(self.mconn_id + '/' + self.queue_id + "/DATA" +
+            " SPF-record of 5321.from-domain=" + self.env_from_domain +
+            " permits us to relay this message"
+          )
+        else:
+          # Expected 'include' not found in SPF-record
+          if self.next_hop in g_ignored_next_hops:
+            logging.info(self.mconn_id + '/' + self.queue_id + "/DATA " + 
+              "Passing message due to ignored next-hop=" + self.next_hop
+            )
+            return Milter.CONTINUE
+          ex = "Restrictive SPF-record (-all) of 5321.from-domain=" + self.env_from_domain + " does not permit us to relay this message!"
+          if g_milter_mode == 'test':
+            logging.info(self.mconn_id + '/' + self.queue_id + "/DATA " + ex)
+            logging.debug(self.mconn_id + '/' + self.queue_id + "/DATA " +
+              'test-mode: X-SOS-Milter header will be added. '
+            )
+            self.add_header = True
+          else: 
+            logging.error(self.mconn_id + '/' + self.queue_id + "/DATA " + ex)
+            self.setreply('550','5.7.1',
+              self.mconn_id + ' ' + ex + ' ' + g_milter_reject_message
+            )
+            return Milter.REJECT
+    return Milter.CONTINUE
 
   def eom(self):
     # EOM is not optional and thus, always called by MTA
@@ -179,13 +197,6 @@ if __name__ == "__main__":
   if 'MILTER_MODE' in os.environ:
     if re.match(r'^test|reject$',os.environ['MILTER_MODE'], re.IGNORECASE):
       g_milter_mode = os.environ['MILTER_MODE']
-  if 'MILTER_DEFAULT_POLICY' in os.environ:
-    if re.match(r'^reject|permit$',os.environ['MILTER_DEFAULT_POLICY'], re.IGNORECASE):
-      g_milter_default_policy = str(os.environ['MILTER_DEFAULT_POLICY']).lower()
-    else:
-      logging.warn("MILTER_DEFAULT_POLICY invalid value: " +
-        os.environ['MILTER_DEFAULT_POLICY']
-      )
   if 'MILTER_NAME' in os.environ:
     g_milter_name = os.environ['MILTER_NAME']
   if 'MILTER_SOCKET' in os.environ:
@@ -200,6 +211,16 @@ if __name__ == "__main__":
     except:
       logging.error("ENV[SPF_REGEX] exception: " + traceback.format_exc())
       sys.exit(1)
+  if 'IGNORED_NEXT_HOPS' in os.environ:
+    try:
+      tmp_hops = os.environ['IGNORED_NEXT_HOPS'].split(',')
+      for next_hop in tmp_hops:
+        g_ignored_next_hops[next_hop] = 'ignore'
+      logging.error("next-hops: " + str(g_ignored_next_hops))
+    except:
+      logging.error("ENV[IGNORED_NEXT_HOPS] exception: " + traceback.format_exc())
+      sys.exit(1)
+      
   try:
     timeout = 600
     # Register to have the Milter factory create instances of your class:
