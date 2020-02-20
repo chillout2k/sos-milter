@@ -26,6 +26,7 @@ services:
       #MILTER_REJECT_MESSAGE: Message rejected due to security policy violation!
       #MILTER_TMPFAIL_MESSAGE: Message temporary rejected. Please try again later ;)
       SPF_REGEX: '^.*include:secure-mailgate\.com.*$$'
+      IGNORED_NEXT_HOPS: 'some-mailrelay.xyz:123, another.relay, and.so.on:125'
     hostname: sos-milter
     volumes:
     - "sosm_socket:/socket/:rw"
