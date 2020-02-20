@@ -20,6 +20,7 @@ g_re_spf_regex = re.compile(r'.*', re.IGNORECASE)
 g_re_expected_txt_data = ''
 g_loglevel = logging.INFO
 g_milter_mode = 'test'
+g_ignored_next_hops = {}
 
 class SOSMilter(Milter.Base):
   # Each new connection is handled in an own thread
@@ -120,13 +121,17 @@ class SOSMilter(Milter.Base):
     # and therefore not available until DATA command
     self.queue_id = self.getsymval('i')
     if self.null_sender:
-      logging.info(self.mconn_id + '/' + self.queue_id + "/DATA Skipping bounce/DSN message")
+      logging.info(self.mconn_id + '/' + self.queue_id + 
+        "/DATA Skipping bounce/DSN message"
+      )
       return Milter.CONTINUE
     if self.spf_record is not None:
       logging.info(self.mconn_id + '/' + self.queue_id + "/DATA " +
         "SPFv1: " + self.spf_record
       )
-      logging.info(self.mconn_id + '/' + self.queue_id + "/DATA next-hop=" + self.next_hop)
+      logging.debug(self.mconn_id + '/' + self.queue_id + "/DATA " + 
+        "next-hop=" + self.next_hop
+      )
       if re.match(r'^".+-all"$', self.spf_record, re.IGNORECASE) is not None:
         # SPF record is in restrictive mode
         if g_re_spf_regex.match(self.spf_record) is not None:
@@ -135,15 +140,20 @@ class SOSMilter(Milter.Base):
             " permits us to relay this message"
           )
         else:
-          ex = "Restrictive SPF-record (-all) of 5321.from-domain=" + self.env_from_domain + " does not permit us to relay this message!"
           # Expected 'include' not found in SPF-record
-          logging.debug(self.mconn_id + '/' + self.queue_id + "/DATA " + ex)
+          if self.next_hop in g_ignored_next_hops:
+            logging.info(self.mconn_id + '/' + self.queue_id + "/DATA " + 
+              "Passing message due to ignored next-hop=" + self.next_hop
+            )
+            return Milter.CONTINUE
+          ex = "Restrictive SPF-record (-all) of 5321.from-domain=" + self.env_from_domain + " does not permit us to relay this message!"
           if g_milter_mode == 'test':
+            logging.info(self.mconn_id + '/' + self.queue_id + "/DATA " + ex)
             logging.debug(self.mconn_id + '/' + self.queue_id + "/DATA " +
-              'test-mode: X-SOS-Milter header will be added'
+              'test-mode: X-SOS-Milter header will be added. '
             )
             self.add_header = True
-          else:
+          else: 
             logging.error(self.mconn_id + '/' + self.queue_id + "/DATA " + ex)
             self.setreply('550','5.7.1',
               self.mconn_id + ' ' + ex + ' ' + g_milter_reject_message
@@ -201,6 +211,16 @@ if __name__ == "__main__":
     except:
       logging.error("ENV[SPF_REGEX] exception: " + traceback.format_exc())
       sys.exit(1)
+  if 'IGNORED_NEXT_HOPS' in os.environ:
+    try:
+      tmp_hops = os.environ['IGNORED_NEXT_HOPS'].split(',')
+      for next_hop in tmp_hops:
+        g_ignored_next_hops[next_hop] = 'ignore'
+      logging.error("next-hops: " + str(g_ignored_next_hops))
+    except:
+      logging.error("ENV[IGNORED_NEXT_HOPS] exception: " + traceback.format_exc())
+      sys.exit(1)
+      
   try:
     timeout = 600
     # Register to have the Milter factory create instances of your class:
