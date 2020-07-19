@@ -15,6 +15,7 @@ RUN env; set -ex ; \
      gcc python3-dev \
  && /usr/bin/pip3 install pymilter \
  && /usr/bin/pip3 install dnspython \
+ && /usr/bin/pip3 install ldap3 \
  && /bin/mkdir /config /socket /app \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*

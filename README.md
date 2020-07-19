@@ -27,6 +27,12 @@ services:
       #MILTER_TMPFAIL_MESSAGE: Message temporary rejected. Please try again later ;)
       SPF_REGEX: '^.*include:secure-mailgate\.com.*$$'
       IGNORED_NEXT_HOPS: 'some-mailrelay.xyz:123, another.relay, and.so.on:125'
+      LDAP_ENABLED: 'some_value'
+      LDAP_SERVER_URI: 'ldaps://some.ldap.server'
+      LDAP_BINDDN: 'some-ldap-user-dn'
+      LDAP_BINDPW: 'some-secret-pw'
+      LDAP_SEARCH_BASE: 'ou=domains,dc=SLD,dc=TLD'
+      LDAP_QUERY_FILTER: '(dc=%d)'
     hostname: sos-milter
     volumes:
     - "sosm_socket:/socket/:rw"

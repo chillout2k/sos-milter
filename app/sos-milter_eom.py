@@ -105,13 +105,13 @@ class SOSMilter(Milter.Base):
       try:
         dns_response = dns.resolver.resolve(self.env_from_domain, 'TXT')
       except dns.resolver.NoAnswer as e:
-        logging.warning(self.mconn_id + 
+        logging.error(self.mconn_id + 
           " /FROM " + e.msg
         )
         # accept message if DNS-resolver fails
         return Milter.CONTINUE
       except dns.resolver.NXDOMAIN as e:
-        logging.warning(self.mconn_id + 
+        logging.error(self.mconn_id + 
           " /FROM " + e.msg
         )
         # accept message if DNS-resolver fails
