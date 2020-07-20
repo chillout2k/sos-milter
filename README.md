@@ -18,20 +18,35 @@ services:
     image: "sos-milter/debian:19.06_master"
     restart: unless-stopped
     environment:
+      # default: info, possible: info, warning, error, debug
       LOG_LEVEL: debug
       # default: test, possible: test,reject
       MILTER_MODE: reject
+      # Default: sos-milter
       MILTER_NAME: sos-milter
-      #MILTER_SOCKET: inet6:8020
-      #MILTER_REJECT_MESSAGE: Message rejected due to security policy violation!
-      #MILTER_TMPFAIL_MESSAGE: Message temporary rejected. Please try again later ;)
+      # Default socket /socket/${MILTER_NAME}
+      # MILTER_SOCKET: inet6:8020
+      # MILTER_REJECT_MESSAGE: Message rejected due to security policy violation!
+      # MILTER_TMPFAIL_MESSAGE: Message temporary rejected. Please try again later ;)
+
+      # Expected Content of the spf-record, like a specific include
+      # docker-compose pitfall: Dollar-sign ($) must be escaped as $$
       SPF_REGEX: '^.*include:secure-mailgate\.com.*$$'
+
+      # If next-hop relay is one of the following, message will be ignored
       IGNORED_NEXT_HOPS: 'some-mailrelay.xyz:123, another.relay, and.so.on:125'
+
+      # Search for sender domain in LDAP. Can be used to mark (add header)
+      # and identify (log) internal sender domains with broken SPF-records
+      # for further processing (log report or header-based routing).
+      # After a message was marked with an additional header, it can be
+      # routed other than usual (e.g. through a bounce-/fwd-relay)
       LDAP_ENABLED: 'some_value'
       LDAP_SERVER_URI: 'ldaps://some.ldap.server'
       LDAP_BINDDN: 'some-ldap-user-dn'
       LDAP_BINDPW: 'some-secret-pw'
       LDAP_SEARCH_BASE: 'ou=domains,dc=SLD,dc=TLD'
+      # %d will be replaced by recognized 5321.env_from_domain
       LDAP_QUERY_FILTER: '(dc=%d)'
     hostname: sos-milter
     volumes:
