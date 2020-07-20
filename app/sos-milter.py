@@ -189,17 +189,8 @@ class SOSMilter(Milter.Base):
             logging.info(self.mconn_id + '/' + self.queue_id + "/EOM " + 
               "5321_from_domain={0} (LDAP) has a broken SPF-record!".format(self.env_from_domain)
             )
-          ex = str(
-            "SPF-record (-all) of 5321_from_domain=" 
-            + self.env_from_domain + " does not permit us to relay this message!"
-          )
-          if g_milter_mode == 'test':
-            logging.info(self.mconn_id + '/' + self.queue_id + "/EOM " + ex)
             try:
-              self.addheader(
-                'X-SOS-Milter',
-                self.mconn_id + ' ' + self.env_from_domain + ': failed SPF-expectation'
-              )
+              self.addheader('X-SOS-Milter', 'failed SPF-expectation')
               logging.debug(self.mconn_id + '/' + self.queue_id + "/EOM " +
                 'test-mode: X-SOS-Milter header was added. '
               )
@@ -207,8 +198,14 @@ class SOSMilter(Milter.Base):
               logging.error(self.mconn_id + '/' + self.queue_id + "/EOM " + 
                 "addheader() failed: " + traceback.format_exc()
               )
-          else: 
-            logging.warning(self.mconn_id + '/' + self.queue_id + "/EOM " + ex)
+          ex = str(
+            " SPF-record (-all) of 5321_from_domain=" 
+            + self.env_from_domain + " does not permit us to relay this message!"
+          )
+          logging.info(self.mconn_id + '/' + self.queue_id + "/EOM " +
+            "mode=" + g_milter_mode + ' ' + ex
+          )
+          if g_milter_mode == 'reject': 
             self.setreply('550','5.7.1',
               self.mconn_id + ' ' + ex + ' ' + g_milter_reject_message
             )

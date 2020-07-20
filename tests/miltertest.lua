@@ -11,7 +11,7 @@ mt.set_timeout(3)
 
 -- 5321.FROM + MACROS
 mt.macro(conn, SMFIC_MAIL, "i", "test-id",'{rcpt_host}', "test.next-hostx")
-if mt.mailfrom(conn, "dominik@zwackl.def") ~= nil then
+if mt.mailfrom(conn, "dominik@dc-it-con.de") ~= nil then
   error "mt.mailfrom() failed"
 end
 if mt.getreply(conn) ~= SMFIR_CONTINUE then
@@ -40,7 +40,7 @@ end
 if not mt.eom_check(conn, MT_HDRADD, "X-SOS-Milter") then
   mt.echo("no header added")
 else
-  mt.echo("X-SOS-Milter header added -> test-mode")
+  mt.echo("X-SOS-Milter header added -> LDAP-Domain with broken SPF")
 end
 
 -- DISCONNECT
