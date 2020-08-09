@@ -8,8 +8,7 @@ import random
 import re
 import dns.resolver
 from ldap3 import (
-  Server, Connection, NONE, ALL, set_config_parameter, ALL_ATTRIBUTES, 
-  ALL_OPERATIONAL_ATTRIBUTES, MODIFY_REPLACE, HASHED_NONE, HASHED_SALTED_SHA,
+  Server, Connection, NONE, set_config_parameter
 )
 from ldap3.core.exceptions import LDAPException
 
@@ -20,7 +19,6 @@ g_milter_reject_message = 'Security policy violation!'
 g_milter_tmpfail_message = 'Service temporarily not available! Please try again later.'
 g_re_domain = re.compile(r'^.*@(\S+)$', re.IGNORECASE)
 g_re_spf_regex = re.compile(r'.*', re.IGNORECASE)
-g_re_expected_txt_data = ''
 g_loglevel = logging.INFO
 g_milter_mode = 'test'
 g_ignored_next_hops = {}
@@ -31,6 +29,10 @@ g_ldap_bindpw = ''
 class SOSMilter(Milter.Base):
   # Each new connection is handled in an own thread
   def __init__(self):
+    self.reset()
+
+  def reset(self):
+    self.client_ip = None
     self.is_null_sender = False
     self.env_from = None
     self.env_from_domain = None
@@ -42,6 +44,7 @@ class SOSMilter(Milter.Base):
     self.mconn_id = g_milter_name + ': ' + ''.join(
       random.choice(string.ascii_lowercase + string.digits) for _ in range(8)
     )
+    logging.debug(self.mconn_id + " RESET")
 
   # Not registered/used callbacks
   @Milter.nocallback
@@ -64,6 +67,18 @@ class SOSMilter(Milter.Base):
     return Milter.CONTINUE
 
   def envfrom(self, mailfrom, *str):
+    # Instance member values remain within reused SMTP-connections!
+    if self.client_ip is not None:
+      # Milter connection reused!
+      logging.debug(self.mconn_id + "/FROM connection reused!")
+      self.reset()
+    self.client_ip = self.getsymval('{client_addr}')
+    if self.client_ip is None:
+      logging.error(self.mconn_id + " FROM exception: could not retrieve milter-macro ({client_addr})!")
+      self.setreply('450','4.7.1', g_milter_tmpfail_message)
+      return Milter.TEMPFAIL
+    else:
+      logging.debug(self.mconn_id + "/FROM client_ip={0}".format(self.client_ip))
     try:
       # DSNs/bounces are not relevant
       if(mailfrom == '<>'):
@@ -90,7 +105,7 @@ class SOSMilter(Milter.Base):
         try:
           g_ldap_conn.search(os.environ['LDAP_SEARCH_BASE'],
             filter,
-            attributes=[ALL_ATTRIBUTES]
+            attributes=[]
           )
           if len(g_ldap_conn.entries) != 0:
             self.is_env_from_domain_in_ldap = True
@@ -105,9 +120,7 @@ class SOSMilter(Milter.Base):
       try:
         dns_response = dns.resolver.resolve(self.env_from_domain, 'TXT')
       except dns.resolver.NoAnswer as e:
-        logging.warning(self.mconn_id + 
-          " /FROM " + e.msg
-        )
+        logging.warning(self.mconn_id + " /FROM " + e.msg)
         # accept message if DNS-resolver fails
         return Milter.CONTINUE
       except dns.resolver.NXDOMAIN as e:
@@ -185,7 +198,7 @@ class SOSMilter(Milter.Base):
               "Passing message due to ignored next-hop=" + self.next_hop
             )
             return Milter.CONTINUE
-          if self.is_env_from_domain_in_ldap:
+          if self.is_env_from_domain_in_ldap and g_milter_mode != 'reject':
             logging.info(self.mconn_id + '/' + self.queue_id + "/EOM " + 
               "5321_from_domain={0} (LDAP) has a broken SPF-record!".format(self.env_from_domain)
             )
@@ -199,11 +212,11 @@ class SOSMilter(Milter.Base):
                 "addheader() failed: " + traceback.format_exc()
               )
           ex = str(
-            " SPF-record (-all) of 5321_from_domain=" 
+            "SPF-record (-all) of 5321_from_domain=" 
             + self.env_from_domain + " does not permit us to relay this message!"
           )
           logging.info(self.mconn_id + '/' + self.queue_id + "/EOM " +
-            "mode=" + g_milter_mode + ' ' + ex
+            "mode=" + g_milter_mode + ' client=' + self.client_ip + ' ' + ex
           )
           if g_milter_mode == 'reject': 
             self.setreply('550','5.7.1',
@@ -218,11 +231,13 @@ class SOSMilter(Milter.Base):
 
   def abort(self):
     # Client disconnected prematurely
+    logging.debug(self.mconn_id + "/ABORT")
     return Milter.CONTINUE
 
   def close(self):
     # Always called, even when abort is called.
     # Clean up any external resources here.
+    logging.debug(self.mconn_id + "/CLOSE")
     return Milter.CONTINUE
 
 if __name__ == "__main__":
