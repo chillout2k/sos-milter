@@ -9,9 +9,10 @@ end
 
 mt.set_timeout(3)
 
+-- First message within smtp-session
 -- 5321.FROM + MACROS
 mt.macro(conn, SMFIC_MAIL, '{client_addr}', "127.128.129.130")
-if mt.mailfrom(conn, "postmaster@staging.zwackl.de") ~= nil then
+if mt.mailfrom(conn, "blubb@gmx.de") ~= nil then
   error "mt.mailfrom() failed"
 end
 if mt.getreply(conn) ~= SMFIR_CONTINUE then
@@ -19,7 +20,7 @@ if mt.getreply(conn) ~= SMFIR_CONTINUE then
 end
 
 -- 5321.RCPT + MACROS
-mt.macro(conn, SMFIC_RCPT, "i", "TestQueueId-1",'{rcpt_host}', "test.next-host")
+mt.macro(conn, SMFIC_RCPT, "i", "TestQueueId-1",'{rcpt_host}', "test.next-hostx")
 if mt.rcptto(conn, "some@recipient.somewhere") ~= nil then
   error "mt.rcptto() failed"
 end

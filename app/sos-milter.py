@@ -115,35 +115,13 @@ class SOSMilter(Milter.Base):
         except LDAPException:
           logging.error(self.mconn_id + "/FROM " + traceback.format_exc())
         
-      # Get TXT record of sender domain
-      dns_response = None
-      try:
-        dns_response = dns.resolver.resolve(self.env_from_domain, 'TXT')
-      except dns.resolver.NoAnswer as e:
-        logging.warning(self.mconn_id + " /FROM " + e.msg)
-        # accept message if DNS-resolver fails
-        return Milter.CONTINUE
-      except dns.resolver.NXDOMAIN as e:
-        logging.warning(self.mconn_id + 
-          " /FROM " + e.msg
-        )
-        # accept message if DNS-resolver fails
-        return Milter.CONTINUE
-      except:
-        logging.error(self.mconn_id + " DNS-Resolver-EXCEPTION: " + traceback.format_exc())
-        # accept message if DNS-resolver fails
-        return Milter.CONTINUE
-      for rdata in dns_response:
-        logging.debug(self.mconn_id + "/FROM DNS-TXT: {0}".format(rdata.to_text()))
-        if re.match(r'^"v=spf1.*"$', rdata.to_text(), re.IGNORECASE):
-          # we´ve got a SPF match!
-          self.spf_record = rdata.to_text()
-          # TODO: check if spf-record is a redirect!?
-          logging.debug(self.mconn_id + "/FROM Found SPFv1: {0}".format(self.spf_record))
-          break
+      # Get TXT-SPF record of sender domain
+      self.spf_record = self.get_spf_record(self.env_from_domain)
       return Milter.CONTINUE
     except:
-      logging.error(self.mconn_id + " FROM-EXCEPTION: " + traceback.format_exc())
+      logging.error(self.mconn_id + 
+        " FROM-EXCEPTION: " + traceback.format_exc()
+      )
       self.setreply('450','4.7.1', g_milter_tmpfail_message)
       return Milter.TEMPFAIL
 
@@ -152,9 +130,13 @@ class SOSMilter(Milter.Base):
       return Milter.CONTINUE
     self.next_hop = self.getsymval('{rcpt_host}')
     if self.next_hop is None:
-      logging.error(self.mconn_id + "RCPT exception: could not retrieve milter-macro ({rcpt_host})")
+      logging.error(self.mconn_id + 
+        "RCPT exception: could not retrieve milter-macro ({rcpt_host})"
+      )
     else:
-      logging.debug(self.mconn_id + "/RCPT Next-Hop: {0}".format(self.next_hop))
+      logging.debug(self.mconn_id +
+        "/RCPT Next-Hop: {0}".format(self.next_hop)
+      )
     return Milter.CONTINUE
 
   # EOM is not optional and thus, always called by MTA
@@ -163,11 +145,15 @@ class SOSMilter(Milter.Base):
     # and therefore not available until DATA command
     self.queue_id = self.getsymval('i')
     if self.queue_id is None:
-      logging.error(self.mconn_id + "EOM exception: could not retrieve milter-macro (i)!")
+      logging.error(self.mconn_id +
+        "EOM exception: could not retrieve milter-macro (i)!"
+      )
       self.setreply('450','4.7.1', g_milter_tmpfail_message)
       return Milter.TEMPFAIL
     else:
-      logging.debug(self.mconn_id + "/EOM Queue-ID: {0}".format(self.queue_id))
+      logging.debug(self.mconn_id + 
+        "/EOM Queue-ID: {0}".format(self.queue_id)
+      )
 
     if self.is_null_sender:
       logging.info(self.mconn_id + '/' + self.queue_id + 
@@ -175,10 +161,12 @@ class SOSMilter(Milter.Base):
       )
       return Milter.CONTINUE
     if self.spf_record is not None:
-      logging.info(self.mconn_id + '/' + self.queue_id + "/EOM " +
+      logging.info(self.mconn_id + 
+        '/' + self.queue_id + "/EOM " +
         "SPFv1: " + str(self.spf_record)
       )
-      logging.debug(self.mconn_id + '/' + self.queue_id + "/EOM " + 
+      logging.debug(self.mconn_id + 
+        '/' + self.queue_id + "/EOM " + 
         "next-hop=" + str(self.next_hop)
       )
       if re.match(r'^".+-all"$', self.spf_record, re.IGNORECASE) is not None:
@@ -194,21 +182,25 @@ class SOSMilter(Milter.Base):
         else:
           # Expected 'include' not found in SPF-record
           if self.next_hop in g_ignored_next_hops:
-            logging.info(self.mconn_id + '/' + self.queue_id + "/EOM " + 
+            logging.info(self.mconn_id + 
+              '/' + self.queue_id + "/EOM " + 
               "Passing message due to ignored next-hop=" + self.next_hop
             )
             return Milter.CONTINUE
           if self.is_env_from_domain_in_ldap and g_milter_mode != 'reject':
-            logging.info(self.mconn_id + '/' + self.queue_id + "/EOM " + 
+            logging.info(self.mconn_id + 
+              '/' + self.queue_id + "/EOM " + 
               "5321_from_domain={0} (LDAP) has a broken SPF-record!".format(self.env_from_domain)
             )
             try:
               self.addheader('X-SOS-Milter', 'failed SPF-expectation')
-              logging.debug(self.mconn_id + '/' + self.queue_id + "/EOM " +
+              logging.debug(self.mconn_id + '/' 
+                + self.queue_id + "/EOM " +
                 'test-mode: X-SOS-Milter header was added. '
               )
             except:
-              logging.error(self.mconn_id + '/' + self.queue_id + "/EOM " + 
+              logging.error(self.mconn_id + 
+                '/' + self.queue_id + "/EOM " + 
                 "addheader() failed: " + traceback.format_exc()
               )
           ex = str(
@@ -224,7 +216,8 @@ class SOSMilter(Milter.Base):
             )
             return Milter.REJECT
     else:
-      logging.debug(self.mconn_id + '/' + self.queue_id + "/EOM " +
+      logging.debug(self.mconn_id + 
+        '/' + self.queue_id + "/EOM " +
         "No SPF-record found for {0}".format(self.env_from_domain)
       )
     return Milter.CONTINUE
@@ -239,6 +232,46 @@ class SOSMilter(Milter.Base):
     # Clean up any external resources here.
     logging.debug(self.mconn_id + "/CLOSE")
     return Milter.CONTINUE
+  
+  def get_spf_record(self, from_domain):
+    dns_response = None
+    try:
+      dns_response = dns.resolver.resolve(from_domain, 'TXT')
+    except dns.resolver.NoAnswer as e:
+      logging.warning(self.mconn_id + "/DNS " + e.msg)
+      # accept message if DNS-resolver fails
+      return None
+    except dns.resolver.NXDOMAIN as e:
+      logging.warning(self.mconn_id + 
+        " /DNS " + e.msg
+      )
+      # accept message if DNS-resolver fails
+      return None
+    except:
+      logging.error(self.mconn_id + 
+        "/DNS Resolver-EXCEPTION: " + traceback.format_exc()
+      )
+      # accept message if DNS-resolver fails
+      return None
+    for rdata in dns_response:
+      if re.match(r'^"v=spf1.*"$', rdata.to_text(), re.IGNORECASE):
+        # we´ve got a SPF match!
+        logging.debug(self.mconn_id + "/DNS SPFv1: {0}".format(rdata.to_text()))
+        # check if spf-record includes a redirect!?
+        m = re.match(
+          r'^.*redirect=(?P<redirect_domain>.+).*"', 
+          rdata.to_text(), 
+          re.IGNORECASE
+        )
+        if m is not None:
+          # SPF redirect clause found
+          spf_redirect_domain = m.group('redirect_domain')
+          logging.info(self.mconn_id + 
+            "/DNS SPF-redirect: {}".format(spf_redirect_domain)
+          )
+          return self.get_spf_record(spf_redirect_domain)
+        else:
+          return rdata.to_text()
 
 if __name__ == "__main__":
   if 'LOG_LEVEL' in os.environ:
@@ -301,7 +334,7 @@ if __name__ == "__main__":
       sys.exit(1)
     try:
       set_config_parameter("RESTARTABLE_SLEEPTIME", 2)
-      set_config_parameter("RESTARTABLE_TRIES", True)
+      set_config_parameter("RESTARTABLE_TRIES", 2)
       set_config_parameter('DEFAULT_SERVER_ENCODING', 'utf-8')
       set_config_parameter('DEFAULT_CLIENT_ENCODING', 'utf-8')
       server = Server(os.environ['LDAP_SERVER_URI'], get_info=NONE)
