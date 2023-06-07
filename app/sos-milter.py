@@ -345,7 +345,7 @@ if __name__ == "__main__":
         raise_exceptions=True,
         client_strategy='RESTARTABLE'
       )
-      logging.info("LDAP-Connection steht. PID: " + str(os.getpid()))
+      logging.info("LDAP-Connection established. PID: " + str(os.getpid()))
     except LDAPException as e:
       print("LDAP-Exception: " + traceback.format_exc())
       sys.exit(1)
