@@ -1,11 +1,22 @@
-# sos-milter
+# SPF-on-submission-Milter - sos-milter
 A lightweight, fast and thread-safe python3 [milter](http://www.postfix.org/MILTER_README.html) on top of [sdgathman/pymilter](https://github.com/sdgathman/pymilter).
 
-### Deployment paradigm
-The intention of this project is to deploy the milter ALWAYS AND ONLY as an [OCI compliant](https://www.opencontainers.org) container. In this case it´s [docker](https://www.docker.com). The main reason is that I´m not interested (and familiar with) in building distribution packages like .rpm, .deb, etc.. Furthermore I´m not really a fan of 'wild and uncontrollable' software deployments like: get the code, compile it and finaly install the results 'somewhere' in the filesystem. In terms of software deployment docker provides wonderful possibilities, which I don´t want to miss anymore... No matter if in development, QA or production stage.
+The main goal of the **sos-milter** is to check the SPF-policy of a senders domain in term of mail submission scenario. Especially when forwarding of messages comming from *foreign* domains with restrictive SPF-policies (-all) takes place. The milter is also designed to check the correctness of SPF-policies for *own* domains (such as customers domains). In this case the milter expects that all *own* (not foreign) domains are managed in a LDAP server so that the milter can recognize them as such. For those domains the milter enforces checks regarding the appearence of particular SPF statements (include/s, ip4, ip6, ...) in the domain name system (DNS). Herefor the milter uses a regular expression which is part of the configuration. In this way the email service provider (ESP) running the sos-milter becomes able to check if his/her customers did set SPF-TXT-records correctly (as documented/expected) on each mail submission attempt and not just during the setup phase.
 
-### docker-compose.yml
-The following [docker-compose](https://docs.docker.com/compose/) file demonstrates how such a setup could be orchestrated on a single docker host or on a docker swarm cluster. In this context we use [postfix](http://www.postfix.org) as our milter-aware MTA.
+Further the sos-milter can be run in `test` or `reject` mode. In `test` mode the milter only does log policy violations which may be turned into metrics and used for baselining. Thus the `test` mode is recommended for first steps in an productive environment before enabling reject mode (if ever). In `reject` mode the milter fulfills policy enforcement and rejects every email submission requests that does not meet the configured expectations (expected SPF statements as regular expression).
+
+### Deployment paradigm
+Following the principles of [12-Factor-App](https://12factor.net/) for cloud native applications, the intention of this project is to deploy the milter as an [OCI compliant](https://www.opencontainers.org) container.
+
+There´s nothing wrong to deploy the milter as a
+* docker-compose deployment on a stand-alone docker host or a docker-swarm cluster
+* stateless Kubernetes-workload (type: `Deployment`)
+* local systemd unit, which is NOT a OCI-compliant was but works too ;-)
+
+Please note, that according to the [3rd principle](https://12factor.net/config) of 12-Factor-App a cloud-native app is configured through environment variables, so this app does.
+
+### Deployment with Docker - docker-compose.yml
+The following [docker-compose](https://docs.docker.com/compose/) file demonstrates how such a setup could be orchestrated on a single docker host or on a docker swarm cluster. In this context we use [postfix](http://www.postfix.org) as our milter-aware MTA which connects to the milter via an UNIX-socket.
 
 ```
 version: '3'
@@ -15,7 +26,7 @@ volumes:
 
 services:
   sos-milter:
-    image: "sos-milter/debian:19.06_master"
+    image: "sos-milter:<your_tag>"
     restart: unless-stopped
     environment:
       # default: info, possible: info, warning, error, debug
@@ -55,11 +66,11 @@ services:
   postfix:
     depends_on:
     - sos-milter
-    image: "postfix/alpine/amd64"
+    image: "your favorite postfix image"
     restart: unless-stopped
     hostname: postfix
     ports:
-    - "1587:587"
+    - "465:465"
     volumes:
     - "./config/postfix:/etc/postfix:ro"
     - "sosm_socket:/socket/sos-milter/:rw"

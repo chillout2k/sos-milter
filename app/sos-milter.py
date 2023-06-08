@@ -8,7 +8,8 @@ import random
 import re
 import dns.resolver
 from ldap3 import (
-  Server, Connection, NONE, set_config_parameter
+  Server, Connection, NONE, set_config_parameter,
+  SAFE_RESTARTABLE
 )
 from ldap3.core.exceptions import LDAPException
 
@@ -23,6 +24,9 @@ g_loglevel = logging.INFO
 g_milter_mode = 'test'
 g_ignored_next_hops = {}
 g_ldap_conn = None
+g_ldap_server_uri = None
+g_ldap_search_base = None
+g_ldap_query_filter = None
 g_ldap_binddn = ''
 g_ldap_bindpw = ''
 
@@ -74,11 +78,15 @@ class SOSMilter(Milter.Base):
       self.reset()
     self.client_ip = self.getsymval('{client_addr}')
     if self.client_ip is None:
-      logging.error(self.mconn_id + " FROM exception: could not retrieve milter-macro ({client_addr})!")
+      logging.error(self.mconn_id + 
+        " FROM exception: could not retrieve milter-macro ({client_addr})!"
+      )
       self.setreply('450','4.7.1', g_milter_tmpfail_message)
       return Milter.TEMPFAIL
     else:
-      logging.debug(self.mconn_id + "/FROM client_ip={0}".format(self.client_ip))
+      logging.debug(self.mconn_id + 
+        "/FROM client_ip={0}".format(self.client_ip)
+      )
     try:
       # DSNs/bounces are not relevant
       if(mailfrom == '<>'):
@@ -100,17 +108,21 @@ class SOSMilter(Milter.Base):
       )
       # Check if env_from_domain is in ldap
       if(g_ldap_conn is not None):
-        filter = os.environ['LDAP_QUERY_FILTER']
+        filter = g_ldap_query_filter
         filter = filter.replace("%d", self.env_from_domain)
+        logging.debug(self.mconn_id + "/FROM " +
+          "LDAP query filter: {}".format(filter)
+        )
         try:
-          g_ldap_conn.search(os.environ['LDAP_SEARCH_BASE'],
+          _, _, ldap_response, _ = g_ldap_conn.search(
+            g_ldap_search_base,
             filter,
             attributes=[]
           )
-          if len(g_ldap_conn.entries) != 0:
+          if len(ldap_response) != 0:
             self.is_env_from_domain_in_ldap = True
             logging.info(self.mconn_id + 
-              "/FROM Domain {0} found in LDAP".format(self.env_from_domain)
+              "/FROM 5321.from_domain={0} found in LDAP".format(self.env_from_domain)
             )
         except LDAPException:
           logging.error(self.mconn_id + "/FROM " + traceback.format_exc())
@@ -291,61 +303,75 @@ if __name__ == "__main__":
   if 'MILTER_MODE' in os.environ:
     if re.match(r'^test|reject$',os.environ['MILTER_MODE'], re.IGNORECASE):
       g_milter_mode = os.environ['MILTER_MODE']
+  logging.info("ENV[MILTER_MODE]: {}".format(g_milter_mode))
   if 'MILTER_NAME' in os.environ:
     g_milter_name = os.environ['MILTER_NAME']
+  logging.info("ENV[MILTER_NAME]: {}".format(g_milter_name))
   if 'MILTER_SOCKET' in os.environ:
     g_milter_socket = os.environ['MILTER_SOCKET']
+  logging.info("ENV[MILTER_SOCKET]: {}".format(g_milter_socket))
   if 'MILTER_REJECT_MESSAGE' in os.environ:
     g_milter_reject_message = os.environ['MILTER_REJECT_MESSAGE']
+  logging.info("ENV[MILTER_REJECT_MESSAGE]: {}".format(g_milter_reject_message))
   if 'MILTER_TMPFAIL_MESSAGE' in os.environ:
     g_milter_tmpfail_message = os.environ['MILTER_TMPFAIL_MESSAGE']
+  logging.info("ENV[MILTER_TMPFAIL_MESSAGE]: {}".format(g_milter_tmpfail_message))
   if 'SPF_REGEX' in os.environ:
     try:
       g_re_spf_regex = re.compile(os.environ['SPF_REGEX'], re.IGNORECASE)
     except:
       logging.error("ENV[SPF_REGEX] exception: " + traceback.format_exc())
       sys.exit(1)
+  logging.info("ENV[SPF_REGEX]: {}".format(g_re_spf_regex))
   if 'IGNORED_NEXT_HOPS' in os.environ:
     try:
       tmp_hops = os.environ['IGNORED_NEXT_HOPS'].split(',')
       for next_hop in tmp_hops:
         g_ignored_next_hops[next_hop] = 'ignore'
-      logging.debug("next-hops: " + str(g_ignored_next_hops))
     except:
       logging.error("ENV[IGNORED_NEXT_HOPS] exception: " + traceback.format_exc())
       sys.exit(1)
+    logging.info("ENV[IGNORED_NEXT_HOPS]: {}".format(g_ignored_next_hops))
   if 'LDAP_ENABLED' in os.environ:
     if 'LDAP_SERVER_URI' not in os.environ:
       logging.error("ENV[LDAP_SERVER_URI] is mandatory!")
       sys.exit(1)
+    g_ldap_server_uri = os.environ['LDAP_SERVER_URI']
+    logging.info("ENV[LDAP_SERVER_URI]: {}".format(g_ldap_server_uri))
     if 'LDAP_BINDDN' not in os.environ:
       logging.info("ENV[LDAP_BINDDN] not set! Continue...")
     else:
       g_ldap_binddn = os.environ['LDAP_BINDDN']
+      logging.info("ENV[LDAP_BINDDN]: {}".format("***"))
     if 'LDAP_BINDPW' not in os.environ:
       logging.info("ENV[LDAP_BINDPW] not set! Continue...")
     else:
       g_ldap_bindpw = os.environ['LDAP_BINDPW']
+      logging.info("ENV[LDAP_BINDPW]: {}".format("***"))
     if 'LDAP_SEARCH_BASE' not in os.environ:
       logging.error("ENV[LDAP_SEARCH_BASE] is mandatory!")
       sys.exit(1)
+    g_ldap_search_base = os.environ['LDAP_SEARCH_BASE']
+    logging.info("ENV[LDAP_SEARCH_BASE]: {}".format(g_ldap_search_base))
     if 'LDAP_QUERY_FILTER' not in os.environ:
       logging.error("ENV[LDAP_QUERY_FILTER] is mandatory!")
       sys.exit(1)
+    g_ldap_query_filter = os.environ['LDAP_QUERY_FILTER']
+    logging.info("ENV[LDAP_QUERY_FILTER]: {}".format(g_ldap_query_filter))
     try:
       set_config_parameter("RESTARTABLE_SLEEPTIME", 2)
       set_config_parameter("RESTARTABLE_TRIES", 2)
       set_config_parameter('DEFAULT_SERVER_ENCODING', 'utf-8')
       set_config_parameter('DEFAULT_CLIENT_ENCODING', 'utf-8')
-      server = Server(os.environ['LDAP_SERVER_URI'], get_info=NONE)
+      server = Server(g_ldap_server_uri, get_info=NONE)
       g_ldap_conn = Connection(server,
         g_ldap_binddn,
         g_ldap_bindpw,
         auto_bind=True, 
         raise_exceptions=True,
-        client_strategy='RESTARTABLE'
+        client_strategy=SAFE_RESTARTABLE
       )
-      logging.info("LDAP-Connection established. PID: " + str(os.getpid()))
+      logging.info("LDAP connection established. PID: " + str(os.getpid()))
     except LDAPException as e:
       print("LDAP-Exception: " + traceback.format_exc())
       sys.exit(1)
