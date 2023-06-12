@@ -158,13 +158,13 @@ class SOSMilter(Milter.Base):
     self.queue_id = self.getsymval('i')
     if self.queue_id is None:
       logging.error(self.mconn_id +
-        "EOM exception: could not retrieve milter-macro (i)!"
+        "/EOM exception: could not retrieve milter-macro (i)!"
       )
       self.setreply('450','4.7.1', g_milter_tmpfail_message)
       return Milter.TEMPFAIL
     else:
       logging.debug(self.mconn_id + 
-        "/EOM Queue-ID: {0}".format(self.queue_id)
+        "/EOM queue_id={0}".format(self.queue_id)
       )
 
     if self.is_null_sender:
@@ -216,7 +216,7 @@ class SOSMilter(Milter.Base):
                 "addheader() failed: " + traceback.format_exc()
               )
           ex = str(
-            "SPF-record (-all) of 5321_from_domain=" 
+            "SPF-record (-all) of 5321.from_domain=" 
             + self.env_from_domain + " does not permit us to relay this message!"
           )
           logging.info(self.mconn_id + '/' + self.queue_id + "/EOM " +
@@ -230,7 +230,7 @@ class SOSMilter(Milter.Base):
     else:
       logging.debug(self.mconn_id + 
         '/' + self.queue_id + "/EOM " +
-        "No SPF-record found for {0}".format(self.env_from_domain)
+        "No SPF-record found for 5321.from_domain={0}".format(self.env_from_domain)
       )
     return Milter.CONTINUE
 
